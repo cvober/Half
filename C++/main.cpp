@@ -6,6 +6,7 @@
 #include <cstring>
 #include <vector>
 #include <queue>
+#include <bitset>
 
 using error_code_t = int;
 using queueNodePointer = std::priority_queue<Node::pointer , std::vector<Node::pointer>, LowestPriority>;
@@ -63,6 +64,8 @@ error_code_t getFrequency(std::vector<int>& _frequency, std::string _pathFile)
         std::cout << "\r" << var << "%" << std::flush;
         ++i;
     };
+
+
     return 0;
 };
 
@@ -146,11 +149,77 @@ std::string getMessageCode(const std::string& _pathFile, const std::vector<std::
         msg += _codes[static_cast<ubyte>(ch)];
     };
 
+    file.close();
+    if(file)
+    {
+        std::cerr << "Error in [" << __PRETTY_FUNCTION__ << "]: " << strerror(errno) << std::endl;
+        return msg;
+    };
+
     return msg;
 
+};  
 
+
+error_code_t writeFile(
+    const std::string& _pathFile
+    ,std::vector<int>& _frequency
+    ,const queueNodePointer& _quenue
+    ,const std::string& _messange)
+{   
+    std::string pathResultFile = _pathFile + ".haff";
+
+    std::ofstream resultFile(pathResultFile, std::ofstream::binary);
+    if(!resultFile)
+    {
+        std::cerr << "Error in [" << __PRETTY_FUNCTION__ << "]: " << strerror(errno) << std::endl;
+        return ns_file::ERR_OPEN ;
+    };
+
+    //Кол-во элементов
+    ubyte count = _quenue.top()->getName().length();
+    resultFile.write(reinterpret_cast<char*>(&count), sizeof(count));
+
+    for(ubyte index = 0; index < _frequency.size(); index++)
+    {
+        int value = _frequency[index];
+        if(value != 0)
+        {
+            std::cout << index << std::endl;
+            resultFile.write(reinterpret_cast<char*>(&index), index);
+            resultFile.write(reinterpret_cast<char*>(&value), value);
+        };
+    };
+
+    int byteCount = _messange.size() / __CHAR_BIT__;
+    int moduls = _messange.size() % __CHAR_BIT__;
+
+    resultFile.write(reinterpret_cast<char*>(&byteCount), byteCount);
+    resultFile.write(reinterpret_cast<char*>(&moduls), moduls);
+
+    for(int i = 0; i < byteCount; i++)
+    {
+        std::bitset<__CHAR_BIT__> b(_messange.substr(i * __CHAR_BIT__, __CHAR_BIT__));
+        ubyte value = static_cast<ubyte>(b.to_ulong());
+        resultFile.write(reinterpret_cast<char*>(&value), sizeof(value));
+    };
+
+    resultFile.close();
+    if(resultFile)
+    {
+        std::cerr << "Error in [" << __PRETTY_FUNCTION__ << "]: " << strerror(errno) << std::endl;
+        return ns_file::ERR_CLOSE;
+    };
+    
+
+    return 0;
+
+
+    
+    
 
 };
+
 
 int main()
 {
@@ -176,25 +245,74 @@ int main()
     queueNodePointer queue;
     filingQueueFrequency(queue, frequency);
 
-/*
-    while(queue.size() > 0)
-    {
-        cout << (*queue.top());
-        queue.pop();
-
-    };
-
-    //return 0;
-*/
-
-
-    /*
-    Создаем дерево
-    */
+    //Создаем дерево
 
     buildTree(queue);
     
-    /*
+    //Создаем коды
+    
+    vector<string> codes(255, "");
+    Node::pointer root = queue.top();
+    makeCode(root, "", codes);
+
+    for(auto i : codes)
+    {
+        if(!i.empty())
+        cout << i << " ";
+    };
+    
+
+
+
+    string messageCode = getMessageCode(pathFile, codes);
+    cout << messageCode << endl;
+
+
+    cout << root->getName().length() << endl;
+
+    writeFile(pathFile, frequency, queue, messageCode);     
+
+};
+
+
+///////////////////////////////////////////////////////////////////////////////
+/*
+    cout << "-------------------------------------------\n";
+
+    cout << " Enter path to file:";
+    cin >> pathFile;        
+   
+    cout << " Enter result to file(You want to save next to the file [Y/n]):";
+    string answer;
+    cin >> answer;
+
+    if(answer == "Y" || answer == "y" || answer == "Yes" || answer == "yes")
+    {
+        outFile = pathFile;
+        string tmp = outFile;
+        
+        while(tmp != "/" || tmp != "\\" || !outFile.empty())
+        {
+            tmp = outFile.back();
+            cout << tmp;
+            outFile.pop_back();
+        };
+
+        outFile += "result.txt"; 
+        //cout << outFile;
+    }
+
+    else
+        cin >> outFile;
+
+    cout << outFile;
+
+    return 0;
+   
+    cout << "-------------------------------------------\n";
+*/
+
+   /*
     auto _queue = queue;
 
     Node::pointer x = _queue.top();
@@ -236,63 +354,6 @@ int main()
     };
 */
     //return 0;
-    /*
-    Создаем коды
-    */
-    vector<string> codes(255, "");
-    Node::pointer root = queue.top();
-    makeCode(root, "", codes);
-
-    return 0;
-    for(auto i : codes)
-    {
-        if(!i.empty())
-        cout << i << " ";
-    };
-
-    return 0;
-    string messageCode = getMessageCode(pathFile, codes);
-    cout << messageCode << endl;
-};
-
-
-///////////////////////////////////////////////////////////////////////////////
-/*
-    cout << "-------------------------------------------\n";
-
-    cout << " Enter path to file:";
-    cin >> pathFile;        
-   
-    cout << " Enter result to file(You want to save next to the file [Y/n]):";
-    string answer;
-    cin >> answer;
-
-    if(answer == "Y" || answer == "y" || answer == "Yes" || answer == "yes")
-    {
-        outFile = pathFile;
-        string tmp = outFile;
-        
-        while(tmp != "/" || tmp != "\\" || !outFile.empty())
-        {
-            tmp = outFile.back();
-            cout << tmp;
-            outFile.pop_back();
-        };
-
-        outFile += "result.txt"; 
-        //cout << outFile;
-    }
-
-    else
-        cin >> outFile;
-
-    cout << outFile;
-
-    return 0;
-   
-    cout << "-------------------------------------------\n";
-*/
-
 
 
 
