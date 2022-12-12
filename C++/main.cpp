@@ -24,6 +24,92 @@ namespace ns_file
     };
 };
 
+std::ifstream::pos_type getSizeFile(const std::string& _file);
+error_code_t getFrequency(std::vector<int>& _frequency, std::string _pathFile);
+
+void filingQueueFrequency(queueNodePointer& _queue, std::vector<int> _frequency);
+void buildTree(queueNodePointer& _queue);
+void makeCode(Node::pointer& _node, std::string _str, std::vector<std::string>& _codes);
+std::string getMessageCode(const std::string& _pathFile, const std::vector<std::string>& _codes);
+error_code_t writeFile(const std::string& _pathFile,std::vector<int>& _frequency,const queueNodePointer& _quenue,const std::string& _messange);
+
+error_code_t readFile(const std::string& _pathFile,std::vector<int>& _frequency,std::string& _messange);
+void makeChar(const Node::pointer& _root, std::string& _messange, std::string& _text);
+error_code_t writeDecodeFile(std::string _pathFile, std::string _text);
+
+int main()
+{
+    using namespace std;
+
+    string pathFile = "./text/input.txt";
+
+    /*
+    Открытие файла для заполнения частот
+    */
+
+    vector<int> frequency(255, 0); 
+    
+    cout << "READING FILE" << endl;
+    getFrequency(frequency, pathFile);
+    cout << endl;
+
+    /*
+    Создаем очередь приоритетов
+    */
+
+    queueNodePointer queue;
+    filingQueueFrequency(queue, frequency);
+
+    //Создаем дерево
+
+    buildTree(queue);
+    
+    //Создаем коды
+    
+    vector<string> codes(255, "");
+    Node::pointer root = queue.top();
+    makeCode(root, "", codes);
+
+    for(auto i : codes)
+    {
+        if(!i.empty())
+        cout << i << " ";
+    };
+    
+    string messageCode = getMessageCode(pathFile, codes);
+    cout << messageCode << endl;
+
+    cout << root->getName().length() << endl;
+
+    writeFile(pathFile, frequency, queue, messageCode);   
+
+    //Обратное кодирование
+
+    //Частоты и код
+    vector<int> frequency2(255, 0);
+    string messageCode2 = getMessageCode(pathFile, codes);
+
+    readFile(pathFile + ".hff.code", frequency2, messageCode2);
+    cout << messageCode2 << endl;
+
+    //Дерево
+    queueNodePointer queue2;
+    filingQueueFrequency(queue2, frequency2);
+    buildTree(queue2);
+
+    Node::pointer root2 = queue2.top();
+    string text = "";
+    
+    //идем и преобразовываем обратно
+    makeChar(root2, messageCode2, text);
+
+    writeDecodeFile(pathFile, text);
+    
+    cout << text << endl;
+
+    return 0;
+};
+
 std::ifstream::pos_type getSizeFile(const std::string& _file)
 {
     std::ifstream file(_file, std::ifstream::ate);
@@ -157,9 +243,7 @@ std::string getMessageCode(const std::string& _pathFile, const std::vector<std::
     };
 
     return msg;
-
 };  
-
 
 error_code_t writeFile(
     const std::string& _pathFile
@@ -167,7 +251,7 @@ error_code_t writeFile(
     ,const queueNodePointer& _quenue
     ,const std::string& _messange)
 {   
-    std::string pathResultFile = _pathFile + ".haff";
+    std::string pathResultFile = _pathFile + ".hff.code";
 
     std::ofstream resultFile(pathResultFile, std::ofstream::binary);
     if(!resultFile)
@@ -186,8 +270,8 @@ error_code_t writeFile(
         if(value != 0)
         {
             std::cout << index << std::endl;
-            resultFile.write(reinterpret_cast<char*>(&index), index);
-            resultFile.write(reinterpret_cast<char*>(&value), value);
+            resultFile.write(reinterpret_cast<char*>(&index), sizeof(index));
+            resultFile.write(reinterpret_cast<char*>(&value), sizeof(value));
         };
     };
 
@@ -197,7 +281,15 @@ error_code_t writeFile(
     resultFile.write(reinterpret_cast<char*>(&byteCount), byteCount);
     resultFile.write(reinterpret_cast<char*>(&moduls), moduls);
 
-    for(int i = 0; i < byteCount; i++)
+    int i = 0;
+    for(; i < byteCount; i++)
+    {
+        std::bitset<__CHAR_BIT__> b(_messange.substr(i * __CHAR_BIT__, __CHAR_BIT__));
+        ubyte value = static_cast<ubyte>(b.to_ulong());
+        resultFile.write(reinterpret_cast<char*>(&value), sizeof(value));
+    };
+
+    if(moduls > 0)
     {
         std::bitset<__CHAR_BIT__> b(_messange.substr(i * __CHAR_BIT__, __CHAR_BIT__));
         ubyte value = static_cast<ubyte>(b.to_ulong());
@@ -205,156 +297,137 @@ error_code_t writeFile(
     };
 
     resultFile.close();
-    if(resultFile)
+    if(!resultFile)
     {
         std::cerr << "Error in [" << __PRETTY_FUNCTION__ << "]: " << strerror(errno) << std::endl;
         return ns_file::ERR_CLOSE;
     };
-    
 
     return 0;
-
-
-    
-    
-
 };
 
-
-int main()
+error_code_t readFile(
+    const std::string& _pathFile
+    ,std::vector<int>& _frequency
+    ,std::string& _messange
+    )
 {
-    using namespace std;
-
-    string pathFile = "./text/input.txt";
-    string outFile = "./text/result.txt";
-
-    /*
-    Открытие файла для заполнения частот
-    */
-
-    vector<int> frequency(255, 0); 
-    
-    cout << "READING FILE" << endl;
-    getFrequency(frequency, pathFile);
-    cout << endl;
-
-    /*
-    Создаем очередь приоритетов
-    */
-
-    queueNodePointer queue;
-    filingQueueFrequency(queue, frequency);
-
-    //Создаем дерево
-
-    buildTree(queue);
-    
-    //Создаем коды
-    
-    vector<string> codes(255, "");
-    Node::pointer root = queue.top();
-    makeCode(root, "", codes);
-
-    for(auto i : codes)
+    //std::string _pathFile = _pathFile;
+    //_pathFile = _pathFile + ".hff.code";
+    std::ifstream file(_pathFile, std::ifstream::binary);
+    if(!file)
     {
-        if(!i.empty())
-        cout << i << " ";
+        std::cerr << "Error in [" << __PRETTY_FUNCTION__ << "]: " << strerror(errno) << std::endl;
+        return ns_file::ERR_OPEN ;
+    };
+
+    ubyte count = 0;
+    file.read(reinterpret_cast<char*>(&count), sizeof(count));
+    std::cout << int(count) << std::endl;
+
+    int i = 0;
+    while (i < count)
+    {
+        ubyte ch;
+        file.read(reinterpret_cast<char*>(&ch), sizeof(ch));
+
+        int f = 0;
+        file.read(reinterpret_cast<char*>(&f), sizeof(f));
+
+        _frequency[ch] = f;
+        ++i;
+    };
+
+    int byteCount = 0;
+    int moduls =0;
+
+    file.read(reinterpret_cast<char*>(&byteCount), byteCount);
+    file.read(reinterpret_cast<char*>(&moduls), moduls);
+
+    i = 0;
+    for(; i < byteCount; i++)
+    {
+        char byte;
+        file.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+
+        std::bitset<__CHAR_BIT__> b(byte);
+
+        _messange += b.to_string();
+    };
+
+    if(moduls > 0)
+    {
+        char byte;
+        file.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+
+        std::bitset<__CHAR_BIT__> b(byte);
+
+        _messange += b.to_string().substr(__CHAR_BIT__ - moduls, __CHAR_BIT__);
     };
     
-
-
-
-    string messageCode = getMessageCode(pathFile, codes);
-    cout << messageCode << endl;
-
-
-    cout << root->getName().length() << endl;
-
-    writeFile(pathFile, frequency, queue, messageCode);     
-
+    return 0;
 };
 
+void makeChar(
+    const Node::pointer& _root, 
+    std::string& _messange, 
+    std::string& _text
+    )
+{
+    Node::pointer node = _root;
 
-///////////////////////////////////////////////////////////////////////////////
-/*
-    cout << "-------------------------------------------\n";
-
-    cout << " Enter path to file:";
-    cin >> pathFile;        
-   
-    cout << " Enter result to file(You want to save next to the file [Y/n]):";
-    string answer;
-    cin >> answer;
-
-    if(answer == "Y" || answer == "y" || answer == "Yes" || answer == "yes")
+    for(int i = 0; i < _messange.size(); i++)
     {
-        outFile = pathFile;
-        string tmp = outFile;
-        
-        while(tmp != "/" || tmp != "\\" || !outFile.empty())
+        char ch = _messange[i];
+
+        if(ch == '0')
         {
-            tmp = outFile.back();
-            cout << tmp;
-            outFile.pop_back();
+            if(node->left != nullptr)
+            {
+                node = node->left;
+
+                if(node->left == nullptr && node->right == nullptr)
+                {
+                    _text += node->getSymbol();
+                    node = _root;
+                };
+            };
+            continue;
         };
 
-        outFile += "result.txt"; 
-        //cout << outFile;
-    }
+        if(ch == '1')
+        {
+            if(node->right != nullptr)
+            {
+                node = node->right;
+                
+                if(node->left == nullptr && node->right == nullptr)
+                {
+                    _text += node->getSymbol();
+                    node = _root;
+                };
+            };
+            continue;
+        };
+    };
+    
+};
 
-    else
-        cin >> outFile;
+error_code_t writeDecodeFile(std::string _pathFile, std::string _text)
+{
+    std::string pathResultFile = _pathFile + ".hff.decode";
 
-    cout << outFile;
+    std::ofstream resultFile(pathResultFile, std::ofstream::binary);
+    if(!resultFile)
+    {
+        std::cerr << "Error in [" << __PRETTY_FUNCTION__ << "]: " << strerror(errno) << std::endl;
+        return ns_file::ERR_OPEN ;
+    };
+
+    resultFile << _text;
 
     return 0;
-   
-    cout << "-------------------------------------------\n";
-*/
-
-   /*
-    auto _queue = queue;
-
-    Node::pointer x = _queue.top();
-        _queue.pop();
-
-        Node::pointer y = _queue.top();
-        _queue.pop();
-
-        std::string name = x->getName() + y->getName();
-        Node::pointer z = std::make_shared<Node>(name, x->getFrequency() + y->getFrequency());
-        z->left = x;
-        z->right = y;
-
-        x->parent = z;
-        y->parent = z;
-
-        _queue.push(z);
-
-     x = _queue.top();
-        _queue.pop();
-
-        y = _queue.top();
-        _queue.pop();
-
-        name = x->getName() + y->getName();
-        z = std::make_shared<Node>(name, x->getFrequency() + y->getFrequency());
-        z->left = x;
-        z->right = y;
-
-        x->parent = z;
-        y->parent = z;
-
-        _queue.push(z);
-
-    while(queue.size() > 0)
-    {
-        cout << (*queue.top());
-        queue.pop();
-    };
-*/
-    //return 0;
-
+};
 
 
 

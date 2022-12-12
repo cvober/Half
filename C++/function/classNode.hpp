@@ -29,7 +29,7 @@ class Node
                 return name;
             else
                 return std::string(1, static_cast<char>(symbol));
-        }
+        };
 
     public:
         void setFrequency(int _f){frequency =_f;};
