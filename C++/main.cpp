@@ -52,7 +52,9 @@ int main()
     cout << "READING FILE" << endl;
     getFrequency(frequency, pathFile);
     cout << endl;
-
+    cout << "COMPRES" << endl;
+    cout << "..." << endl;
+    
     /*
     Создаем очередь приоритетов
     */
@@ -70,27 +72,25 @@ int main()
     Node::pointer root = queue.top();
     makeCode(root, "", codes);
 
-    for(auto i : codes)
-    {
-        if(!i.empty())
-        cout << i << " ";
-    };
-    
-    string messageCode = getMessageCode(pathFile, codes);
-    cout << messageCode << endl;
+    //Кодируем файл
 
-    cout << root->getName().length() << endl;
+    string messageCode = getMessageCode(pathFile, codes);
+
+    //Запись результата в файл
+    cout << "..." << endl;
 
     writeFile(pathFile, frequency, queue, messageCode);   
 
-    //Обратное кодирование
+    /*
+    Обратное кодирование
+    */
+    cout << "..." << endl;
 
     //Частоты и код
     vector<int> frequency2(255, 0);
     string messageCode2 = getMessageCode(pathFile, codes);
 
     readFile(pathFile + ".hff.code", frequency2, messageCode2);
-    cout << messageCode2 << endl;
 
     //Дерево
     queueNodePointer queue2;
@@ -102,11 +102,12 @@ int main()
     
     //идем и преобразовываем обратно
     makeChar(root2, messageCode2, text);
-
+    cout << "..." << endl;
     writeDecodeFile(pathFile, text);
-    
-    cout << text << endl;
 
+    cout << "COMPLETE" << endl;
+    cout << endl;
+    
     return 0;
 };
 
@@ -151,7 +152,6 @@ error_code_t getFrequency(std::vector<int>& _frequency, std::string _pathFile)
         ++i;
     };
 
-
     return 0;
 };
 
@@ -171,7 +171,6 @@ void makeCode(Node::pointer& _node, std::string _str, std::vector<std::string>& 
     if(_node->right == nullptr && _node->left == nullptr)
     {
         _codes[_node->getSymbol()] = _str;
-        std::cout << "char- " << _node->getName() << " frequ- " << _node->getFrequency() << " code- " << _codes[_node->getSymbol()] << std::endl;
         _node->setCode(_str);
     };
 };
@@ -269,7 +268,6 @@ error_code_t writeFile(
         int value = _frequency[index];
         if(value != 0)
         {
-            std::cout << index << std::endl;
             resultFile.write(reinterpret_cast<char*>(&index), sizeof(index));
             resultFile.write(reinterpret_cast<char*>(&value), sizeof(value));
         };
@@ -296,13 +294,6 @@ error_code_t writeFile(
         resultFile.write(reinterpret_cast<char*>(&value), sizeof(value));
     };
 
-    resultFile.close();
-    if(!resultFile)
-    {
-        std::cerr << "Error in [" << __PRETTY_FUNCTION__ << "]: " << strerror(errno) << std::endl;
-        return ns_file::ERR_CLOSE;
-    };
-
     return 0;
 };
 
@@ -312,8 +303,6 @@ error_code_t readFile(
     ,std::string& _messange
     )
 {
-    //std::string _pathFile = _pathFile;
-    //_pathFile = _pathFile + ".hff.code";
     std::ifstream file(_pathFile, std::ifstream::binary);
     if(!file)
     {
@@ -323,7 +312,6 @@ error_code_t readFile(
 
     ubyte count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
-    std::cout << int(count) << std::endl;
 
     int i = 0;
     while (i < count)
